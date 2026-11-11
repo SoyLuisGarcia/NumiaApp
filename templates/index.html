@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Didáctica de Métodos Numéricos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+    <!-- MathJax para Fórmulas Matemáticas LaTeX -->
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <!-- Tesseract.js CDN para OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon-box">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                        <path d="M9 9h6v6H9z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Calculadora de Métodos Numéricos</h1>
+                    <p>Formatos LaTeX, diseño adaptativo y cámara en tiempo real</p>
+                </div>
+            </div>
+            
+            <button class="btn-camera" onclick="abrirModalCamara()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                Tomar Foto / Escanear
+            </button>
+        </header>
+
+        <!-- Seleccionadores -->
+        <section class="controls-card card">
+            <div class="grid-form">
+                <div class="form-group">
+                    <label for="nivel">
+                        <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        Nivel de Explicación:
+                    </label>
+                    <select id="nivel" onchange="ejecutarSiExiste()">
+                        <option value="sencillo" selected>Sencillo (Paso a paso interactivo desglosado)</option>
+                        <option value="normal">Normal (Estándar Académico Completo)</option>
+                        <option value="avanzado">Avanzado (Resumen Ejecutivo Sintético)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="metodo">
+                        <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        Método Numérico:
+                    </label>
+                    <select id="metodo" onchange="cambiarFormulario()">
+                        <option value="biseccion">Método de Bisección</option>
+                        <option value="newton">Newton-Raphson</option>
+                        <option value="polinomial">Interpolación Polinomial</option>
+                        <option value="derivacion">Derivación Numérica</option>
+                        <option value="trapecio">Trapecio Compuesto</option>
+                        <option value="simpson">Simpson 1/3 Compuesto</option>
+                        <option value="euler">Método de Euler (EDOs)</option>
+                        <option value="gauss_jordan">Gauss-Jordan (Matrices)</option>
+                        <option value="gauss_seidel">Gauss-Seidel (Iterativo)</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Formulario -->
+        <section class="card input-card">
+            <div class="card-header">
+                <h3 id="form-title">Parámetros del Método</h3>
+                <span class="badge">Entrada de Datos</span>
+            </div>
+            <div id="form-container" class="form-body"></div>
+        </section>
+
+        <!-- Área de Resultados -->
+        <section id="resultado" class="card result-card hidden">
+            <div class="card-header">
+                <h3>Resultados</h3>
+                <div id="meta-badge" class="badge highlight-badge"></div>
+            </div>
+            <div id="didactic-guia" class="note-box"></div>
+            <div id="output-content" class="output-body"></div>
+        </section>
+    </div>
+
+    <!-- Modal para Cámara en Vivo y Carga de Archivos -->
+    <div id="modal-camara" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Escanear Ejercicio con Cámara</h3>
+                <button class="btn-close" onclick="cerrarModalCamara()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="help-text">Apunta tu cámara al ejercicio o sube una imagen de tu libreta/libro.</p>
+
+                <!-- Visor de Cámara en Vivo -->
+                <div class="camera-stream-container">
+                    <video id="webcam-feed" autoplay playsinline class="webcam-video"></video>
+                    <canvas id="capture-canvas" style="display:none;"></canvas>
+                </div>
+
+                <div class="camera-actions">
+                    <button class="btn-action-camera" onclick="capturarFotoCamara()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                        Capturar Foto Ahora
+                    </button>
+                    
+                    <div class="file-input-wrapper">
+                        <input type="file" id="camera-file-input" accept="image/*" onchange="procesarArchivoOCR(event)">
+                        <label for="camera-file-input" class="btn-secondary-upload">
+                            Subir Imagen desde Galería
+                        </label>
+                    </div>
+                </div>
+
+                <div id="ocr-status" class="ocr-status hidden">
+                    <div class="spinner"></div>
+                    <span id="ocr-msg">Procesando imagen con OCR...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let webcamStream = null;
+
+        function cambiarFormulario() {
+            const m = document.getElementById('metodo').value;
+            const container = document.getElementById('form-container');
+            const title = document.getElementById('form-title');
+            let html = '';
+
+            if (m === 'biseccion') {
+                title.innerText = "Bisección: Raíz mediante división de intervalo a la mitad";
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>Función f(x):</label><input type="text" id="funcion" value="x**3 - x - 2" placeholder="Ejemplo: x^3 - x - 2 o sin(x)"></div>
+                        <div class="form-group"><label>Límite a:</label><input type="number" id="a" value="1" step="any" placeholder="1"></div>
+                        <div class="form-group"><label>Límite b:</label><input type="number" id="b" value="2" step="any" placeholder="2"></div>
+                        <div class="form-group"><label>Tolerancia (%):</label><input type="text" id="tol" value="0.0001" placeholder="0.0001"></div>
+                        <div class="form-group"><label>Máx Iteraciones:</label><input type="number" id="max_iter" value="50" placeholder="50"></div>
+                    </div>
+                `;
+            } else if (m === 'newton') {
+                title.innerText = "Newton-Raphson: Aproximación mediante rectas tangentes";
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>Función f(x):</label><input type="text" id="funcion" value="x**2 - 4" placeholder="Ejemplo: x^2 - 4"></div>
+                        <div class="form-group"><label>Valor Inicial (x0):</label><input type="number" id="x0" value="3" step="any" placeholder="3"></div>
+                        <div class="form-group"><label>Tolerancia (%):</label><input type="text" id="tol" value="0.0001" placeholder="0.0001"></div>
+                        <div class="form-group"><label>Máx Iteraciones:</label><input type="number" id="max_iter" value="50" placeholder="50"></div>
+                    </div>
+                `;
+            } else if (m === 'polinomial') {
+                title.innerText = "Interpolación Polinomial";
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>Puntos X (separados por comas):</label><input type="text" id="x_pts" value="1, 2, 3" placeholder="1, 2, 3"></div>
+                        <div class="form-group full-width"><label>Puntos Y (separados por comas):</label><input type="text" id="y_pts" value="2, 3, 5" placeholder="2, 3, 5"></div>
+                        <div class="form-group"><label>X a evaluar:</label><input type="number" id="x_eval" value="2.5" step="any" placeholder="2.5"></div>
+                    </div>
+                `;
+            } else if (m === 'derivacion') {
+                title.innerText = "Derivación Numérica";
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>Función f(x):</label><input type="text" id="funcion" value="sin(x)" placeholder="sin(x)"></div>
+                        <div class="form-group"><label>Punto X:</label><input type="number" id="x" value="1.0" step="any" placeholder="1.0"></div>
+                        <div class="form-group"><label>Paso (h):</label><input type="number" id="h" value="0.01" step="any" placeholder="0.01"></div>
+                        <div class="form-group"><label>Esquema:</label>
+                            <select id="tipo"><option value="centrada">Centrada</option><option value="adelante">Adelante</option><option value="atras">Atrás</option></select>
+                        </div>
+                    </div>
+                `;
+            } else if (m === 'trapecio' || m === 'simpson') {
+                title.innerText = `Integración Numérica (${m === 'trapecio' ? 'Trapecio Compuesto' : 'Simpson 1/3 Compuesto'})`;
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>Función f(x):</label><input type="text" id="funcion" value="x**2" placeholder="x^2"></div>
+                        <div class="form-group"><label>Límite a:</label><input type="number" id="a" value="0" step="any" placeholder="0"></div>
+                        <div class="form-group"><label>Límite b:</label><input type="number" id="b" value="2" step="any" placeholder="2"></div>
+                        <div class="form-group"><label>Subintervalos (n):</label><input type="number" id="n" value="6" placeholder="6"></div>
+                    </div>
+                `;
+            } else if (m === 'euler') {
+                title.innerText = "Método de Euler (EDOs)";
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width"><label>dy/dx = f(x, y):</label><input type="text" id="funcion" value="x + y" placeholder="x + y"></div>
+                        <div class="form-group"><label>x0:</label><input type="number" id="x0" value="0" step="any" placeholder="0"></div>
+                        <div class="form-group"><label>y0:</label><input type="number" id="y0" value="1" step="any" placeholder="1"></div>
+                        <div class="form-group"><label>Paso (h):</label><input type="number" id="h" value="0.1" step="any" placeholder="0.1"></div>
+                        <div class="form-group"><label>Pasos (n):</label><input type="number" id="n" value="5" placeholder="5"></div>
+                    </div>
+                `;
+            } else if (m === 'gauss_jordan' || m === 'gauss_seidel') {
+                title.innerText = `Sistemas de Ecuaciones (${m === 'gauss_jordan' ? 'Gauss-Jordan' : 'Gauss-Seidel'})`;
+                html = `
+                    <div class="grid-form gap-2">
+                        <div class="form-group full-width">
+                            <label>Matriz del Sistema [ A | b ]:</label>
+                            <textarea id="matriz_raw" rows="4" placeholder="Escribe o pega aquí la matriz de tu ejercicio, por ejemplo:&#10;3  1  5&#10;1  2  5"></textarea>
+                            <small class="field-help">Formatos aceptados: renglones simples, comas, espacios, corchetes o ecuaciones como 3x + y = 5.</small>
+                        </div>
+                        ${m === 'gauss_seidel' ? `
+                            <div class="form-group"><label>Tolerancia (%):</label><input type="text" id="tol" value="0.0001" placeholder="0.0001"></div>
+                            <div class="form-group"><label>Máx Iteraciones:</label><input type="number" id="max_iter" value="50" placeholder="50"></div>
+                        ` : ''}
+                    </div>
+                `;
+                setTimeout(() => {
+                    if (document.getElementById('matriz_raw')) {
+                        document.getElementById('matriz_raw').value = "3  1  5\n1  2  5";
+                    }
+                }, 50);
+            }
+
+            html += `
+                <div class="form-actions">
+                    <button class="btn-submit" onclick="ejecutar()">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        Calcular Resultado
+                    </button>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function ejecutarSiExiste() {
+            if (!document.getElementById('resultado').classList.contains('hidden')) {
+                ejecutar();
+            }
+        }
+
+        async function ejecutar() {
+            const metodo = document.getElementById('metodo').value;
+            const nivel = document.getElementById('nivel').value;
+            let payload = { metodo, nivel };
+
+            if (document.getElementById('funcion')) payload.funcion = document.getElementById('funcion').value;
+            if (document.getElementById('a')) payload.a = document.getElementById('a').value;
+            if (document.getElementById('b')) payload.b = document.getElementById('b').value;
+            if (document.getElementById('x0')) payload.x0 = document.getElementById('x0').value;
+            if (document.getElementById('y0')) payload.y0 = document.getElementById('y0').value;
+            if (document.getElementById('x')) payload.x = document.getElementById('x').value;
+            if (document.getElementById('h')) payload.h = document.getElementById('h').value;
+            if (document.getElementById('n')) payload.n = document.getElementById('n').value;
+            if (document.getElementById('tol')) payload.tol = document.getElementById('tol').value;
+            if (document.getElementById('max_iter')) payload.max_iter = document.getElementById('max_iter').value;
+            if (document.getElementById('tipo')) payload.tipo = document.getElementById('tipo').value;
+            if (document.getElementById('x_pts')) payload.x_pts = document.getElementById('x_pts').value;
+            if (document.getElementById('y_pts')) payload.y_pts = document.getElementById('y_pts').value;
+            if (document.getElementById('x_eval')) payload.x_eval = document.getElementById('x_eval').value;
+            if (document.getElementById('matriz_raw')) payload.matriz_raw = document.getElementById('matriz_raw').value;
+
+            const response = await fetch('/calcular', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            renderizarSegunNivel(data, nivel);
+        }
+
+        function renderizarSegunNivel(data, nivel) {
+            const resCard = document.getElementById('resultado');
+            const out = document.getElementById('output-content');
+            const guia = document.getElementById('didactic-guia');
+            const metaBadge = document.getElementById('meta-badge');
+
+            resCard.classList.remove('hidden');
+
+            if (data.error) {
+                guia.innerHTML = '';
+                metaBadge.innerText = 'Error';
+                out.innerHTML = `<div class="error-box">${data.error}</div>`;
+                return;
+            }
+
+            metaBadge.innerText = `${data.metodo} (${nivel.toUpperCase()})`;
+            guia.innerHTML = `<strong>${data.meta_didactica.titulo}</strong><p>${data.meta_didactica.descripcion}</p>`;
+
+            let renderHTML = '';
+
+            // PANEL DE FÓRMULAS TEÓRICAS EN LATEX (Solo si existen fórmulas generales)
+            let latexFormulaContent = '';
+            if (data.funcion_latex) latexFormulaContent += `<div class="latex-row"><strong>Función Modelo:</strong> $$${data.funcion_latex}$$</div>`;
+            if (data.derivada_latex) latexFormulaContent += `<div class="latex-row"><strong>Derivada:</strong> $$${data.derivada_latex}$$</div>`;
+            if (data.polinomio_latex) latexFormulaContent += `<div class="latex-row"><strong>Polinomio Construido:</strong> $$${data.polinomio_latex}$$</div>`;
+            if (data.formula_general_latex) latexFormulaContent += `<div class="latex-row"><strong>Fórmula General:</strong> $$${data.formula_general_latex}$$</div>`;
+            if (data.formula_paso_latex) latexFormulaContent += `<div class="latex-row"><strong>Desglose Numérico:</strong> $$${data.formula_paso_latex}$$</div>`;
+
+            if (latexFormulaContent.trim() !== '') {
+                renderHTML += `<div class="latex-formula-card">${latexFormulaContent}</div>`;
+            }
+
+            // =========================================================================
+            // 🌟 1. NIVEL SENCILLO (PASO A PASO DIDÁCTICO Y ACOMODADO)
+            // =========================================================================
+            if (nivel === 'sencillo') {
+                if (data.metodo === 'Bisección') {
+                    renderHTML += `
+                        <div class="glosario-card">
+                            <div class="glosario-title">
+                                <svg class="glosario-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                Glosario Didáctico de Variables
+                            </div>
+                            <div class="glosario-grid">
+                                <div class="glosario-item"><span class="glosario-tag">a</span> <span>Extremo izquierdo del intervalo</span></div>
+                                <div class="glosario-item"><span class="glosario-tag">b</span> <span>Extremo derecho del intervalo</span></div>
+                                <div class="glosario-item"><span class="glosario-tag">c</span> <span>Punto medio calculado</span></div>
+                                <div class="glosario-item"><span class="glosario-tag">f(c)</span> <span>Evaluación de c en la función</span></div>
+                                <div class="glosario-item"><span class="glosario-tag">Error</span> <span>Tolerancia porcentual alcanzada</span></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (data.explicacion_manzanitas) {
+                    renderHTML += `
+                        <div class="sencillo-summary-box">
+                            <div class="summary-badge-label">RESUMEN DIDÁCTICO DEL PROCEDIMIENTO</div>
+                            <div class="summary-body-text">${data.explicacion_manzanitas}</div>
+                        </div>
+                    `;
+                }
+
+                if (data.metodo === 'Gauss-Jordan') {
+                    renderHTML += `<h4 class="section-subtitle">Pasos Matriciales Explicados:</h4>`;
+                    data.pasos.forEach(p => {
+                        renderHTML += `
+                            <div class="matrix-step-card">
+                                <div class="step-header">
+                                    <span class="step-pill">Paso ${p.paso}</span>
+                                    <span class="step-op-title">${p.operacion}</span>
+                                </div>
+                                <div class="manzanitas-body">${p.explicacion_manzanitas}</div>
+                                <div class="matrix-display-box">$$${p.matriz_latex}$$</div>
+                            </div>
+                        `;
+                    });
+                } else if (data.metodo === 'Gauss-Seidel') {
+                    renderHTML += `<h4 class="section-subtitle">Sustitución de Variables Iteración por Iteración:</h4>`;
+                    data.pasos.forEach(p => {
+                        renderHTML += `
+                            <div class="manzanitas-card">
+                                <div class="manzanitas-header">
+                                    <span class="step-pill">Iteración ${p.iteracion}</span>
+                                    <span class="formula-badge-pill">Error Máx: ${p.error_max}</span>
+                                </div>
+                                <div class="manzanitas-body">
+                                    <p style="margin:0 0 8px 0;"><strong>Despeje y Sustitución de Variables en Tiempo Real:</strong></p>
+                                    <ul class="var-steps-list">
+                                        ${p.pasos_variables.map(pv => `<li>Despeje $$${pv.formula_latex}$$</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else if (data.pasos && data.pasos.length > 0) {
+                    renderHTML += `<h4 class="section-subtitle">Detalle Aritmético Paso a Paso:</h4>`;
+                    data.pasos.forEach((p, idx) => {
+                        renderHTML += `
+                            <div class="manzanitas-card">
+                                <div class="manzanitas-header">
+                                    <span class="step-pill">Paso ${p.iteracion || p.paso || (idx + 1)}</span>
+                                    ${p.formula_c_latex ? `<span class="formula-badge-pill">$$${p.formula_c_latex}$$</span>` : ''}
+                                    ${p.formula_paso_latex ? `<span class="formula-badge-pill">$$${p.formula_paso_latex}$$</span>` : ''}
+                                </div>
+                                <div class="manzanitas-body">${p.explicacion_manzanitas}</div>
+                                ${p.formula_fc_latex ? `<div class="manzanitas-sub">Evaluación del Punto: $$${p.formula_fc_latex}$$</div>` : ''}
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            // =========================================================================
+            // 📘 2. NIVEL NORMAL (ESTÁNDAR ACADÉMICO CON ESTILO PROFESIONAL)
+            // =========================================================================
+            else if (nivel === 'normal') {
+                if (data.raiz) renderHTML += `<div class="solution-summary"><strong>Raíz Aproximada:</strong> c = ${data.raiz}</div>`;
+                if (data.soluciones) renderHTML += `<div class="solution-summary"><strong>Soluciones X:</strong> [ ${data.soluciones.join(', ')} ]</div>`;
+                if (data.resultado) renderHTML += `<div class="solution-summary"><strong>Resultado Evaluado:</strong> ${data.resultado}</div>`;
+                if (data.area_aproximada) renderHTML += `<div class="solution-summary"><strong>Área Integrada:</strong> I = ${data.area_aproximada}</div>`;
+                if (data.derivada) renderHTML += `<div class="solution-summary"><strong>Derivada Estimada:</strong> f'(${data.x}) = ${data.derivada}</div>`;
+
+                if (data.metodo === 'Gauss-Jordan') {
+                    renderHTML += `<h4 class="section-subtitle">Transformación Matricial Completa:</h4>`;
+                    data.pasos.forEach(p => {
+                        renderHTML += `
+                            <div class="matrix-step-card">
+                                <div class="step-header">
+                                    <span class="step-pill">Paso ${p.paso}</span>
+                                    <span class="step-op-title">${p.operacion}</span>
+                                </div>
+                                <div class="matrix-display-box">$$${p.matriz_latex}$$</div>
+                            </div>
+                        `;
+                    });
+                } else if (data.metodo === 'Gauss-Seidel') {
+                    renderHTML += `<div class="note-box"><strong>Diagonal Dominante:</strong> ${data.diagonal_dominante ? 'SÍ' : 'NO'}<br>${data.detalles_dominancia.join('<br>')}</div>`;
+                    renderHTML += `<h4 class="section-subtitle">Tabla Completa de Iteraciones:</h4><div class="table-container"><table class="custom-table"><thead><tr><th>#</th><th>VECTOR X</th><th>DESGLOSE MATEMÁTICO</th><th>ERROR MÁX</th></tr></thead><tbody>`;
+                    data.pasos.forEach((p, index) => {
+                        const esFinal = index === data.pasos.length - 1;
+                        renderHTML += `<tr class="${esFinal ? 'converged-row' : ''}">
+                            <td><span class="step-tag">${p.iteracion}</span></td>
+                            <td><strong>[ ${p.vector_x.join(', ')} ]</strong></td>
+                            <td>$$${p.desglose.join(', ')}$$</td>
+                            <td>${esFinal ? `<span class="badge-success">${p.error_max}</span>` : p.error_max}</td>
+                        </tr>`;
+                    });
+                    renderHTML += `</tbody></table></div>`;
+                } else if (data.pasos && data.pasos.length > 0) {
+                    renderHTML += `<h4 class="section-subtitle">Tabla Completa:</h4><div class="table-container"><table class="custom-table"><thead><tr>`;
+                    let keys = Object.keys(data.pasos[0]).filter(k => !['explicacion_manzanitas', 'por_que', 'formula_c_latex', 'formula_fc_latex', 'formula_paso_latex', 'matriz_latex', 'pasos_variables'].includes(k));
+                    keys.forEach(k => renderHTML += `<th>${k.toUpperCase().replace('_', ' ')}</th>`);
+                    renderHTML += `</tr></thead><tbody>`;
+
+                    data.pasos.forEach((p, index) => {
+                        const esFinal = index === data.pasos.length - 1;
+                        renderHTML += `<tr class="${esFinal ? 'converged-row' : ''}">`;
+                        keys.forEach(k => {
+                            let cellVal = p[k];
+                            if (k === 'iteracion' || k === 'paso' || k === 'i') {
+                                cellVal = `<span class="step-tag">${cellVal}</span>`;
+                            } else if (esFinal && (k === 'c' || k === 'raiz' || k === 'xi_siguiente' || k === 'yi_next' || k === 'derivada')) {
+                                cellVal = `<strong>${cellVal}</strong>`;
+                            }
+                            renderHTML += `<td>${cellVal}</td>`;
+                        });
+                        renderHTML += `</tr>`;
+                    });
+                    renderHTML += `</tbody></table></div>`;
+                }
+            }
+
+            // =========================================================================
+            // ⚡ 3. NIVEL AVANZADO (DISEÑO SINTÉTICO EN TARJETAS COMPARATIVAS)
+            // =========================================================================
+            else if (nivel === 'avanzado') {
+                renderHTML += `<div class="kpi-grid">`;
+                if (data.raiz !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">RAÍZ APROXIMADA</span><span class="kpi-value">${data.raiz}</span></div>`;
+                if (data.area_aproximada !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">ÁREA INTEGRADA</span><span class="kpi-value">${data.area_aproximada}</span></div>`;
+                if (data.derivada !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">DERIVADA f'(${data.x})</span><span class="kpi-value">${data.derivada}</span></div>`;
+                if (data.resultado !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">EVALUACIÓN P(${data.x_eval})</span><span class="kpi-value">${data.resultado}</span></div>`;
+                if (data.iteraciones !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">TOTAL ITERACIONES</span><span class="kpi-value">${data.iteraciones}</span></div>`;
+                if (data.error_final !== undefined) renderHTML += `<div class="kpi-card"><span class="kpi-title">ERROR FINAL</span><span class="kpi-value">${data.error_final}</span></div>`;
+                renderHTML += `</div>`;
+
+                if (data.metodo === 'Gauss-Jordan') {
+                    renderHTML += `<h4 class="section-subtitle">Comparativa Matricial del Sistema:</h4>`;
+                    renderHTML += `
+                        <div class="latex-comparison-grid">
+                            <div class="comparison-card">
+                                <div class="comparison-header">Matriz Inicial [A|b]</div>
+                                <div class="matrix-display-box">$$${data.matriz_inicial_latex}$$</div>
+                            </div>
+                            <div class="comparison-card highlight-border">
+                                <div class="comparison-header">Matriz Reducida Final</div>
+                                <div class="matrix-display-box">$$${data.matriz_final_latex}$$</div>
+                            </div>
+                        </div>
+                        <div class="vector-solution-card">
+                            <div class="vector-title">Vector Solución Obtenido</div>
+                            <div class="vector-latex">$$${data.soluciones_latex}$$</div>
+                        </div>
+                    `;
+                } else if (data.hitos && data.hitos.length > 0) {
+                    renderHTML += `<h4 class="section-subtitle">Tabla Sintética de Hitos (Paso Inicial, Intermedio y Convergencia):</h4>`;
+                    renderHTML += `<div class="table-container"><table class="custom-table compact"><thead><tr>`;
+                    let keys = Object.keys(data.hitos[0]).filter(k => !['explicacion_manzanitas', 'por_que', 'formula_c_latex', 'formula_fc_latex', 'formula_paso_latex', 'matriz_latex', 'desglose', 'pasos_variables'].includes(k));
+                    keys.forEach(k => renderHTML += `<th>${k.toUpperCase().replace('_', ' ')}</th>`);
+                    renderHTML += `</tr></thead><tbody>`;
+
+                    data.hitos.forEach((p, idx) => {
+                        const esFinal = idx === data.hitos.length - 1;
+                        renderHTML += `<tr class="${esFinal ? 'converged-row' : ''}">`;
+                        keys.forEach(k => {
+                            let val = p[k];
+                            if (Array.isArray(val)) val = `[ ${val.join(', ')} ]`;
+                            renderHTML += `<td>${val}</td>`;
+                        });
+                        renderHTML += `</tr>`;
+                    });
+                    renderHTML += `</tbody></table></div>`;
+                }
+            }
+
+            out.innerHTML = renderHTML;
+
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise();
+            }
+        }
+
+        // =========================================================================
+        // MÓDULO DE CÁMARA EN TIEMPO REAL
+        // =========================================================================
+        async function abrirModalCamara() {
+            document.getElementById('modal-camara').classList.remove('hidden');
+            const video = document.getElementById('webcam-feed');
+
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                video.srcObject = webcamStream;
+            } catch (err) {
+                console.warn("No se pudo iniciar la cámara en vivo:", err);
+            }
+        }
+
+        function cerrarModalCamara() {
+            document.getElementById('modal-camara').classList.add('hidden');
+            document.getElementById('ocr-status').classList.add('hidden');
+            
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+        }
+
+        async function capturarFotoCamara() {
+            const video = document.getElementById('webcam-feed');
+            const canvas = document.getElementById('capture-canvas');
+            
+            if (!video.srcObject) {
+                alert("La cámara en vivo no está activa. Puedes subir una imagen desde la galería.");
+                return;
+            }
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(async (blob) => {
+                await procesarBlobOCR(blob);
+            }, 'image/jpeg');
+        }
+
+        async function procesarArchivoOCR(event) {
+            const file = event.target.files[0];
+            if (file) {
+                await procesarBlobOCR(file);
+            }
+        }
+
+        async function procesarBlobOCR(imageBlob) {
+            const status = document.getElementById('ocr-status');
+            const msg = document.getElementById('ocr-msg');
+            status.classList.remove('hidden');
+            msg.innerText = "Reconociendo ejercicio...";
+
+            try {
+                const worker = await Tesseract.createWorker('spa');
+                const ret = await worker.recognize(imageBlob);
+                const text = ret.data.text;
+                await worker.terminate();
+
+                msg.innerText = "Asignando datos al formulario...";
+                extraerYAsignarVariables(text);
+                
+                status.classList.add('hidden');
+                cerrarModalCamara();
+                alert("¡Ejercicio extraído correctamente!");
+            } catch (err) {
+                status.classList.add('hidden');
+                alert("Error de procesamiento OCR: " + err.message);
+            }
+        }
+
+        function extraerYAsignarVariables(text) {
+            const funcMatch = text.match(/(?:f\(x\)|f\(x,y\)|dy\/dx|y')\s*=\s*([^\n\r]+)/i) || text.match(/([x\d\+\-\*\/\^\(\)\s]{4,})/);
+            if (funcMatch && document.getElementById('funcion')) {
+                let cleanFunc = funcMatch[1].trim().replace(/=/g, '');
+                document.getElementById('funcion').value = cleanFunc;
+            }
+
+            const aMatch = text.match(/\ba\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (aMatch && document.getElementById('a')) document.getElementById('a').value = aMatch[1];
+
+            const bMatch = text.match(/\bb\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (bMatch && document.getElementById('b')) document.getElementById('b').value = bMatch[1];
+
+            const x0Match = text.match(/\bx0?\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (x0Match && document.getElementById('x0')) document.getElementById('x0').value = x0Match[1];
+
+            const y0Match = text.match(/\by0?\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (y0Match && document.getElementById('y0')) document.getElementById('y0').value = y0Match[1];
+
+            const hMatch = text.match(/\bh\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (hMatch && document.getElementById('h')) document.getElementById('h').value = hMatch[1];
+
+            const nMatch = text.match(/\bn\s*=\s*(\d+)/i);
+            if (nMatch && document.getElementById('n')) document.getElementById('n').value = nMatch[1];
+
+            const tolMatch = text.match(/(?:tol|error)\s*=\s*(-?\d+(?:\.\d+)?)/i);
+            if (tolMatch && document.getElementById('tol')) document.getElementById('tol').value = tolMatch[1];
+
+            if (document.getElementById('matriz_raw')) {
+                document.getElementById('matriz_raw').value = text.trim();
+            }
+        }
+
+        window.onload = cambiarFormulario;
+    </script>
+</body>
+</html>
