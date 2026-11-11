@@ -13,15 +13,15 @@ Es una aplicación web interactiva diseñada para la enseñanza y resolución de
 - **Escáner OCR con Cámara en Tiempo Real:** Reconocimiento automático de ecuaciones y variables desde cuadernos o libros utilizando `Tesseract.js`.
 - **Formato Matemático Profesional:** Renderizado en tiempo real de notación LaTeX mediante `MathJax`.
 - **9 Métodos Numéricos Integrados:**
-  1. Bisección
-  2. Newton-Raphson
-  3. Interpolación Polinomial
-  4. Derivación Numérica (Centrada, Adelante, Atrás)
-  5. Trapecio Compuesto
-  6. Simpson 1/3 Compuesto
-  7. Método de Euler (EDOs)
-  8. Gauss-Jordan (Sistemas de Ecuaciones / Matrices)
-  9. Gauss-Seidel (Método Iterativo)
+  * Bisección
+  * Newton-Raphson
+  * Interpolación Polinomial
+  *  Derivación Numérica (Centrada, Adelante, Atrás)
+  *  Trapecio Compuesto
+  * Simpson 1/3 Compuesto
+  * Método de Euler (EDOs)
+  * Gauss-Jordan (Sistemas de Ecuaciones / Matrices)
+  * Gauss-Seidel (Método Iterativo)
 
 ---
 
